@@ -13,6 +13,38 @@
 * **Сеть:** gRPC / нативные TCP-сокеты (WIP)
 * **Синхронизация:** каналы, select, мьютексы, atomic-операции.
 
+## Взаимодействие Горутин 
+```mermaid
+flowchart TD
+%% Элементы без рамок (plain)
+    STOP["Stop()<br>close(shutdownCh)"]:::plain
+    BUF["буфер=1"]:::plain
+    HAE["HandleAppendEntries()<br>(node.go:106)"]:::plain
+    BF["becomeFollower()<br>(state.go:99)"]:::plain
+
+%% Элементы с рамками (box)
+    SHUT["shutdownCh<br>(broadcast: все читающие видят)"]:::box
+    TIMER["runElection<br>Timer"]:::box
+    HEART["runHeartbeat<br>Loop"]:::box
+    RESET["electionResetCh<br>(non-blocking send)"]:::box
+
+%% Основной флоу сверху вниз
+    STOP -.- SHUT
+    SHUT --> TIMER
+    SHUT --> HEART
+
+    TIMER --> RESET
+    RESET -.- BUF
+
+%% Линии к нижним функциям (без стрелок вверх, чтобы не сломать расположение)
+    RESET --- HAE
+    RESET --- BF
+
+%% Стилизация под скриншот (прозрачный фон, белые/серые рамки)
+    classDef box fill:transparent,stroke:#a0a0a0,stroke-width:1.5px,color:inherit;
+    classDef plain fill:transparent,stroke:transparent,color:inherit;
+```
+## Схема проэкта архитектура 
 ```mermaid
 graph TD
     CMD["📂 cmd/example_kv/<br><small><i>точка входа, wire-up</i></small>"]
