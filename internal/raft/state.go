@@ -115,7 +115,7 @@ func (n *Node) becomeFollower(term uint64) {
 	}
 }
 func (n *Node) solicitVotes(peer transport.ServerID, args RequestVoteArgs, votes *int32) {
-	ctx, cancelContext := context.WithTimeout(context.Background(), time.Second)
+	ctx, cancelContext := context.WithTimeout(context.Background(), time.Millisecond*50)
 	defer cancelContext()
 	resp, err := n.trans.RequestVote(ctx, transport.ServerAddress(peer), args)
 	if err != nil {
