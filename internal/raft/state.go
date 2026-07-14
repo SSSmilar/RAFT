@@ -1,8 +1,14 @@
 package raft
 
 import (
+	"context"
+	"encoding/binary"
 	"fmt"
+	"log/slog"
 	"sync/atomic"
+	"time"
+
+	"github.com/anrey/raft/internal/transport"
 )
 
 // NodeState is the role a Raft node plays at any given moment.
@@ -106,6 +112,37 @@ func (n *Node) becomeFollower(term uint64) {
 	select {
 	case n.electionResetCh <- struct{}{}:
 	default: // already pending; timer will see the reset.
+	}
+}
+func (n *Node) solicitVotes(peer transport.ServerID, args RequestVoteArgs, votes *int32) {
+	ctx, cancelContext := context.WithTimeout(context.Background(), time.Second)
+	defer cancelContext()
+	resp, err := n.trans.RequestVote(ctx, transport.ServerAddress(peer), args)
+	if err != nil {
+		slog.Error("failed to send ", "peer: ", peer, " error: ", err)
+		return
+	}
+	reply, ok := resp.(RequestVoteReply)
+	if !ok {
+		slog.Error("received unexpected response type from peer:", peer, " response: ", resp)
+		return
+	}
+	if reply.Term > n.getCurrentTerm() {
+		n.becomeFollower(reply.Term)
+		return
+	}
+	if reply.VoteGranted {
+		newVotes := atomic.AddInt32(votes, 1)
+		quorum := int32(len(n.peers)+1)/2 + 1
+		if newVotes == quorum {
+			n.mu.Lock()
+			if n.getState() != Candidate || n.getCurrentTerm() != args.Term {
+				n.mu.Unlock()
+				return
+			}
+			n.mu.Unlock()
+			n.becomeLeader()
+		}
 	}
 }
 
