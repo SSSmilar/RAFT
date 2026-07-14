@@ -109,6 +109,17 @@ func (rs *raftState) setLastApplied(index uint64) {
 func (n *Node) becomeFollower(term uint64) {
 	n.setCurrentTerm(term)
 	n.setState(Follower)
+	n.mu.Lock()
+	n.votedFor = ""
+	n.mu.Unlock()
+	if err := n.store.Set([]byte("votedFor"), []byte("")); err != nil {
+		panic(fmt.Errorf("failed to persist votedFor: %v", err))
+	}
+	termsBytes := make([]byte, 8)
+	binary.LittleEndian.PutUint64(termsBytes, n.getCurrentTerm())
+	if err := n.store.Set([]byte("currentTerm"), termsBytes); err != nil {
+		panic(fmt.Errorf("failed to persist currentTerm: %v", err))
+	}
 	select {
 	case n.electionResetCh <- struct{}{}:
 	default: // already pending; timer will see the reset.
