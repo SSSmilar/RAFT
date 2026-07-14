@@ -148,27 +148,43 @@ func (n *Node) solicitVotes(peer transport.ServerID, args RequestVoteArgs, votes
 
 // becomeCandidate increments the term and transitions the node to Candidate state.
 // Callers MUST NOT hold n.mu when calling this method.
-//
-// TODO(Шаг 1.3 — Начало выборов): реализовать по порядку:
-//  1. Под n.mu: votedFor = n.localID (голос за себя), снять снапшот
-//     LastLogIndex/LastLogTerm из n.log — и СРАЗУ Unlock.
-//  2. Собрать RequestVoteArgs с новым термом и снапшотом лога.
-//  3. Для КАЖДОГО пира из n.peers запустить горутину ТОЛЬКО через n.goFunc:
-//     она вызывает n.trans.RequestVote(peer, args) — БЕЗ удержания n.mu (Danger Zone #1).
-//
-// TODO(Шаг 1.4 — Подсчёт кворума): завести счётчик голосов (начать с 1 — свой голос).
-// Каждая горутина при VoteGranted=true увеличивает счётчик (atomic или под n.mu).
-// Как только голосов > len(n.peers)+1 делить на 2 И мы всё ещё Candidate
-// в ТОМ ЖЕ терме → n.becomeLeader(). Если в ответе Term > нашего → n.becomeFollower(Term).
-//
+
 // TODO(Шаг 3.1 — Персистентность): сохранить новый term и votedFor в n.store
 // ДО отправки RequestVote.
 func (n *Node) becomeCandidate() {
+	var lastLogTerm uint64
+	var lastLogIndex uint64
 	n.setCurrentTerm(n.getCurrentTerm() + 1)
 	n.setState(Candidate)
 	n.mu.Lock()
-	n.voteFor = n.localID
+	if len(n.log) > 0 {
+		lastEntry := n.log[len(n.log)-1]
+		lastLogTerm = lastEntry.Term
+		lastLogIndex = lastEntry.Index
+	}
+	n.votedFor = n.localID
 	n.mu.Unlock()
+	if err := n.store.Set([]byte("votedFor"), []byte(n.localID)); err != nil {
+		panic(fmt.Errorf("failed to persist votedFor: %v", err))
+	}
+	termsBytes := make([]byte, 8)
+	binary.LittleEndian.PutUint64(termsBytes, n.getCurrentTerm())
+	if err := n.store.Set([]byte("currentTerm"), termsBytes); err != nil {
+		panic(fmt.Errorf("failed to persist currentTerm: %v", err))
+	}
+	requestVoteArgs := RequestVoteArgs{
+		Term:         n.getCurrentTerm(),
+		CandidateID:  n.localID,
+		LastLogIndex: lastLogIndex,
+		LastLogTerm:  lastLogTerm,
+	}
+	var votes int32 = 1
+	for _, peer := range n.peers {
+		localPeer := peer
+		n.goFunc(func() {
+			n.solicitVotes(localPeer, requestVoteArgs, &votes)
+		})
+	}
 }
 
 // becomeLeader transitions the node to Leader state.
