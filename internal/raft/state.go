@@ -97,15 +97,7 @@ func (rs *raftState) setLastApplied(index uint64) {
 }
 
 // becomeFollower transitions the node to Follower state for the given term.
-// Callers MUST NOT hold n.mu when calling this method.
-//
-// TODO(Шаг 1.5 — Отступление по терму): под n.mu очистить votedFor = ""
-// (новый term — новое право голоса). Вызывается ИЗ ЛЮБОГО места, где мы
-// увидели term больше своего: HandleRequestVote, HandleAppendEntries,
-// обработка ответов на наши RPC.
-//
-// TODO(Шаг 3.1 — Персистентность): сохранить term и пустой votedFor
-// в n.store ДО возврата из функции.
+
 func (n *Node) becomeFollower(term uint64) {
 	n.setCurrentTerm(term)
 	n.setState(Follower)
@@ -160,8 +152,6 @@ func (n *Node) solicitVotes(peer transport.ServerID, args RequestVoteArgs, votes
 // becomeCandidate increments the term and transitions the node to Candidate state.
 // Callers MUST NOT hold n.mu when calling this method.
 
-// TODO(Шаг 3.1 — Персистентность): сохранить новый term и votedFor в n.store
-// ДО отправки RequestVote.
 func (n *Node) becomeCandidate() {
 	var lastLogTerm uint64
 	var lastLogIndex uint64
@@ -201,16 +191,10 @@ func (n *Node) becomeCandidate() {
 // becomeLeader transitions the node to Leader state.
 // Callers MUST NOT hold n.mu when calling this method.
 //
-// TODO(Шаг 1.6 — Запуск лидера): после setState(Leader) запустить heartbeat-цикл:
-//
-//	n.goFunc(n.runHeartbeatLoop)
-//
-// Это минимально необходимое, чтобы выборы «закрепились»: без heartbeat
-// остальные узлы через 150-300ms устроят новые выборы.
-//
 // TODO(Шаг 2.3 — Состояние лидера): инициализировать nextIndex/matchIndex
 // для каждого пира: nextIndex[peer] = последний индекс лога + 1, matchIndex[peer] = 0.
 // Хранить их в полях Node под n.mu (НЕ заводить отдельный мьютекс — Danger Zone #3).
 func (n *Node) becomeLeader() {
 	n.setState(Leader)
+	n.goFunc(n.runHeartbeatLoop)
 }
