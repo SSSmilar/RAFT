@@ -196,5 +196,6 @@ func (n *Node) becomeCandidate() {
 // Хранить их в полях Node под n.mu (НЕ заводить отдельный мьютекс — Danger Zone #3).
 func (n *Node) becomeLeader() {
 	n.setState(Leader)
+	
 	n.goFunc(n.runHeartbeatLoop)
 }
