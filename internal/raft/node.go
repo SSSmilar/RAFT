@@ -25,6 +25,12 @@ type Node struct {
 	// (StoreLogs) ДО отправки ответа Success=true в HandleAppendEntries.
 	log []storage.LogEntry
 
+	matchIndex []uint64
+
+	nextIndex []uint64
+
+	quorumMatchIndex []uint64
+
 	// Immutable after New() returns.
 	localID transport.ServerID
 	peers   []transport.ServerID
@@ -68,7 +74,11 @@ func New(
 		store:           store,
 		electionResetCh: make(chan struct{}, 1),
 		shutdownCh:      make(chan struct{}),
+		matchIndex:  make([]uint64, len(peers)),
+		nextIndex:   make([]uint64, len(peers)),
+		quorumMatchIndex: make([]uint64, len(peers)),
 	}
+
 	n.setState(Follower)
 
 	// TODO(Шаг 3.3 — Восстановление): прочитать currentTerm и votedFor из n.store
@@ -76,7 +86,7 @@ func New(
 	// Если ключа нет — это первый запуск, стартуем с term=0.
 	// Вызвать n.setCurrentTerm(...) и n.votedFor = ... ДО return.
 
-	return n, nil
+		return n, nil
 }
 
 // Start launches background goroutines. It must be called exactly once after New().
