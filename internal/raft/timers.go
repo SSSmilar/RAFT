@@ -65,6 +65,30 @@ func (n *Node) runHeartbeatLoop() {
 			// записи (lastApplied, commitIndex] к машине состояний (KV-store)
 			// и продвинуть setLastApplied. Обычно это отдельная горутина apply-loop,
 			// но для начала можно прямо здесь.
+			for i, peer := range n.peers {
+				localPeer := peer
+				localIdx := i
+				n.goFunc(func() {
+					n.mu.RLock()
+					localTerm := n.getCurrentTerm()
+					localId := n.localID
+
+					localPrevLogIndex := n.nextIndex[localIdx] - 1
+					var localPrevLogTerm uint64
+
+					if localPrevLogIndex != 0 {
+						localPrevLogTerm = n.log[localPrevLogIndex-1].Term
+					}
+
+					var localLog []LogEntry
+
+					if uint64(len(n.log)) > localPrevLogIndex {
+						start := localPrevLogIndex
+						end := min(uint64(len(n.log)), start+uint64(n.config.MaxAppendEntries))
+						localLog = make([]LogEntry, end-start)
+						copy(localLog, n.log[start:end])
+					}
+					n.mu.RUnlock()
 		}
 	}
 }
