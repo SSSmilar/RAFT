@@ -125,6 +125,24 @@ func (n *Node) runHeartbeatLoop() {
 						n.matchIndex[localIdx] = localPrevLogIndex + uint64(len(localLog))
 						n.nextIndex[localIdx] = n.matchIndex[localIdx] + 1
 						slog.Info("AppendEntries success", "peer", localPeer, "matchIndex", n.matchIndex[localIdx], "nextIndex", n.nextIndex[localIdx])
+						copy(n.quorumMatchIndex, n.matchIndex)
+						n.quorumMatchIndex[len(n.peers)] = uint64(len(n.log))
+						slices.SortFunc(n.quorumMatchIndex, func(a, b uint64) int {
+							return cmp.Compare(b, a)
+						})
+						quorum := (len(n.peers)+1)/2 + 1
+
+						N := n.quorumMatchIndex[quorum-1]
+
+						term, err := n.termAtLocked(N)
+						if err != nil {
+							slog.Error("Error occurred while fetching term", "err", err)
+							return
+						}
+						if N > n.getCommitIndex() && term == n.currentTerm {
+							n.setCommitIndex(N)
+						}
+
 					} else {
 						if n.nextIndex[localIdx] > 1 {
 							n.nextIndex[localIdx]--
