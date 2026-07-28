@@ -1,3 +1,3 @@
-package example_kv
+package main
 
-//KV storage will be here
+// KV storage implementation will be here.
