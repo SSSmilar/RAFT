@@ -75,5 +75,5 @@ func randomElectionTimeout(min, max time.Duration) time.Duration {
 	if delta <= 0 {
 		return min
 	}
-	return min + time.Duration(rand.Int63n(delta))
+	return min + time.Duration(rand.N(delta))
 }
