@@ -145,7 +145,7 @@ func (n *Node) solicitVotes(peer transport.ServerID, args RequestVoteArgs, votes
 			}
 			n.becomeLeaderLocked()
 			n.mu.Unlock()
-			n.becomeLeader()
+			
 		}
 	}
 }
