@@ -195,7 +195,12 @@ func (n *Node) becomeCandidate() {
 // TODO(Шаг 2.3 — Состояние лидера): инициализировать nextIndex/matchIndex
 // для каждого пира: nextIndex[peer] = последний индекс лога + 1, matchIndex[peer] = 0.
 // Хранить их в полях Node под n.mu (НЕ заводить отдельный мьютекс — Danger Zone #3).
-func (n *Node) becomeLeader() {
+func (n *Node) becomeLeaderLocked() {
+
+	for i, _ := range n.peers {
+		n.nextIndex[i] = uint64(len(n.log)) + 1
+		n.matchIndex[i] = 0
+	}
 	n.setState(Leader)
 	
 	n.goFunc(n.runHeartbeatLoop)
