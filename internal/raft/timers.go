@@ -37,17 +37,17 @@ func (n *Node) runElectionTimer() {
 		}
 	}
 }
-func (n *Node) termAt(index uint64) (uint64, error) {
+func (n *Node) termAtLocked(index uint64) (uint64, error) {
 	if index == 0 {
 		return 0, nil
 	}
-	if index >= uint64(len(n.log)) {
+	if index > uint64(len(n.log)) {
 		return 0, fmt.Errorf("index out of bounds")
 	}
-	return n.log[index-1].Term, nil 
-
+	return n.log[index-1].Term, nil
 
 }
+
 // runHeartbeatLoop sends periodic heartbeats to all peers while the node is Leader.
 // It exits when the node is no longer Leader or when shutdownCh is closed.
 func (n *Node) runHeartbeatLoop() {
