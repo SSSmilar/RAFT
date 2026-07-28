@@ -61,21 +61,6 @@ func (n *Node) runHeartbeatLoop() {
 			if n.getState() != Leader {
 				return
 			}
-			// TODO(Шаг 2.1 — Heartbeat): для каждого пира через n.goFunc отправить
-			// AppendEntries. Порядок внутри горутины:
-			//  1. Под n.mu.RLock собрать args (term, PrevLogIndex/Term из n.log,
-			//     Entries по nextIndex[peer] — для heartbeat пустой срез) — и RUnlock.
-			//  2. n.trans.AppendEntries(peer, args) — БЕЗ мьютекса (Danger Zone #1).
-			//  3. Обработать ответ под n.mu.Lock:
-			//     - reply.Term > нашего → Unlock, потом n.becomeFollower(reply.Term), выход.
-			//     - Success=true  → matchIndex[peer] = PrevLogIndex + len(Entries),
-			//                       nextIndex[peer] = matchIndex[peer] + 1.
-			//     - Success=false → nextIndex[peer]-- (retry на следующем тике).
-			//
-			// TODO(Шаг 2.4 — Продвижение commitIndex): после обновления matchIndex
-			// найти наибольший индекс N, который есть у большинства (matchIndex[peer] >= N
-			// у кворума) И у которого term == текущий term. Тогда setCommitIndex(N).
-			//
 			// TODO(Шаг 2.5 — Применение): когда commitIndex > lastApplied, применить
 			// записи (lastApplied, commitIndex] к машине состояний (KV-store)
 			// и продвинуть setLastApplied. Обычно это отдельная горутина apply-loop,
