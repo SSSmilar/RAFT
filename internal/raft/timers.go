@@ -89,6 +89,52 @@ func (n *Node) runHeartbeatLoop() {
 						copy(localLog, n.log[start:end])
 					}
 					n.mu.RUnlock()
+					localAppendEntries := AppendEntriesArgs{
+						Term:         localTerm,
+						LeaderID:     localId,
+						PrevLogIndex: localPrevLogIndex,
+						PrevLogTerm:  localPrevLogTerm,
+						Entries:      localLog,
+					}
+					ctx, cancelCtx := context.WithTimeout(context.Background(), time.Millisecond*40)
+					defer cancelCtx()
+					localAppendEntriesResp, err := n.trans.AppendEntries(ctx, transport.ServerAddress(localPeer), localAppendEntries)
+					if err != nil {
+						slog.Error("AppendEntries failed", "err", err)
+						return
+					}
+					reply, ok := localAppendEntriesResp.(AppendEntriesReply)
+					if !ok {
+						slog.Error("AppendEntries response type assertion failed")
+						return
+					}
+					n.mu.Lock()
+
+					if n.getCurrentTerm() != localTerm {
+						n.mu.Unlock()
+						slog.Warn("AppendEntries response term mismatch", "expected", localTerm, "actual", n.getCurrentTerm())
+						return
+					}
+					if reply.Term > localTerm {
+						n.mu.Unlock()
+						slog.Warn("AppendEntries response term greater than current term", "replyTerm", reply.Term, "currentTerm", localTerm)
+						n.becomeFollower(reply.Term)
+						return
+					}
+					if reply.Success {
+						n.matchIndex[localIdx] = localPrevLogIndex + uint64(len(localLog))
+						n.nextIndex[localIdx] = n.matchIndex[localIdx] + 1
+						slog.Info("AppendEntries success", "peer", localPeer, "matchIndex", n.matchIndex[localIdx], "nextIndex", n.nextIndex[localIdx])
+					} else {
+						if n.nextIndex[localIdx] > 1 {
+							n.nextIndex[localIdx]--
+						}
+						slog.Info("AppendEntries failed, decrementing nextIndex", "peer", localPeer, "nextIndex", n.nextIndex[localIdx])
+						return
+					}
+					n.mu.Unlock()
+				})
+			}
 		}
 	}
 }
