@@ -1,8 +1,15 @@
 package raft
 
 import (
-	"math/rand"
+	"cmp"
+	"context"
+	"fmt"
+	"log/slog"
+	"math/rand/v2"
+	"slices"
 	"time"
+
+	"github.com/anrey/raft/internal/transport"
 )
 
 // runElectionTimer drives the election timeout loop for Follower and Candidate states.
@@ -23,7 +30,7 @@ func (n *Node) runElectionTimer() {
 		case <-timer.C:
 			state := n.getState()
 			if state != Follower && state != Candidate {
-				return
+				continue
 			}
 			n.becomeCandidate()
 			// Loop again: the candidate itself needs a timeout for a possible re-election.
