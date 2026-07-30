@@ -14,6 +14,10 @@ import (
 //
 // Field layout rule: raftState MUST remain the first (embedded) field so that
 // its uint64 members sit at a naturally aligned offset on 32-bit platforms.
+type ApplyMsg struct {
+	Command []byte
+	Index   uint64
+}
 type Node struct {
 	raftState // FIRST — 64-bit atomic alignment guarantee on 32-bit platforms.
 
@@ -30,6 +34,10 @@ type Node struct {
 	nextIndex []uint64
 
 	quorumMatchIndex []uint64
+
+	commitCh chan struct{}
+
+	applyCh chan ApplyMsg
 
 	// Immutable after New() returns.
 	localID transport.ServerID
@@ -86,13 +94,14 @@ func New(
 	// Если ключа нет — это первый запуск, стартуем с term=0.
 	// Вызвать n.setCurrentTerm(...) и n.votedFor = ... ДО return.
 
-		return n, nil
+	return n, nil
 }
 
 // Start launches background goroutines. It must be called exactly once after New().
 func (n *Node) Start() {
 	n.goFunc(n.runElectionTimer)
 	n.goFunc(n.runRPCConsumer)
+	n.goFunc(n.runApplyTimer)
 }
 func (n *Node) runRPCConsumer() {
 	for {
