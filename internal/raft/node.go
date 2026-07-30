@@ -103,7 +103,7 @@ func New(
 func (n *Node) Start() {
 	n.goFunc(n.runElectionTimer)
 	n.goFunc(n.runRPCConsumer)
-	n.goFunc(n.runApplyTimer)
+	n.goFunc(n.runApplyLoop)
 }
 func (n *Node) runRPCConsumer() {
 	for {
@@ -150,7 +150,6 @@ func (n *Node) runApplyLoop() {
 				case <-n.shutdownCh:
 					return
 				}
-
 				n.setLastApplied(entry.Index)
 			}
 		}
