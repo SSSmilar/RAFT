@@ -125,7 +125,7 @@ func (n *Node) runRPCConsumer() {
 	}
 }
 
-func (n *Node) runApplyTimer() {
+func (n *Node) runApplyLoop() {
 	for {
 		select {
 		case <-n.shutdownCh:
@@ -147,8 +147,10 @@ func (n *Node) runApplyTimer() {
 				}
 				select {
 				case n.applyCh <- answer:
-				default:
+				case <-n.shutdownCh:
+					return
 				}
+
 				n.setLastApplied(entry.Index)
 			}
 		}
