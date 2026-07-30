@@ -75,16 +75,18 @@ func New(
 		return nil, errors.New("raft: stable store must not be nil")
 	}
 	n := &Node{
-		localID:         localID,
-		peers:           peers,
-		config:          config,
-		trans:           trans,
-		store:           store,
-		electionResetCh: make(chan struct{}, 1),
-		shutdownCh:      make(chan struct{}),
-		matchIndex:  make([]uint64, len(peers)),
-		nextIndex:   make([]uint64, len(peers)),
+		localID:          localID,
+		peers:            peers,
+		config:           config,
+		trans:            trans,
+		store:            store,
+		electionResetCh:  make(chan struct{}, 1),
+		shutdownCh:       make(chan struct{}),
+		matchIndex:       make([]uint64, len(peers)),
+		nextIndex:        make([]uint64, len(peers)),
 		quorumMatchIndex: make([]uint64, len(peers)),
+		commitCh:         make(chan struct{}, 1),
+		applyCh:          make(chan ApplyMsg, 1),
 	}
 
 	n.setState(Follower)
