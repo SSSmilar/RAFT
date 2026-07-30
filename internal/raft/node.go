@@ -125,6 +125,36 @@ func (n *Node) runRPCConsumer() {
 	}
 }
 
+func (n *Node) runApplyTimer() {
+	for {
+		select {
+		case <-n.shutdownCh:
+			return
+
+		case <-n.commitCh:
+			var localLog []storage.LogEntry
+			n.mu.RLock()
+			if n.commitIndex > n.lastApplied {
+				length := n.commitIndex - n.lastApplied
+				localLog = make([]storage.LogEntry, length)
+				copy(localLog, n.log[n.lastApplied:n.commitIndex])
+			}
+			n.mu.RUnlock()
+			for _, entry := range localLog {
+				answer := ApplyMsg{
+					Command: entry.Command,
+					Index:   entry.Index,
+				}
+				select {
+				case n.applyCh <- answer:
+				default:
+				}
+				n.setLastApplied(entry.Index)
+			}
+		}
+	}
+}
+
 // Stop shuts down all background goroutines and blocks until they have all exited.
 func (n *Node) Stop() {
 	close(n.shutdownCh)
